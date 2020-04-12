@@ -15,7 +15,6 @@ class Buttons:
 	def printMessage(self):
 		print('WOOOOOOOOOOOOOOOOW')
 
-print('Hello')
 root = tk.Tk()
 b = Buttons(root)
 root.mainloop()
