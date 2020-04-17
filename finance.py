@@ -34,6 +34,8 @@ class ApplicationWindow(QWidget):
         self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
         self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
         self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        self.login.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex) # TO BE CONTINUED
+        self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
 
         layout = QVBoxLayout()
         layout.addWidget(self.stack)
@@ -124,6 +126,7 @@ class LoginWindow(QWidget):
         buttons_layout.addStretch(50)
 
         self.login_button = QPushButton('Login')
+        self.login_button.setEnabled(False)
         self.back_button = QPushButton('Back')
         self.login_buttons = QButtonGroup()
 
@@ -135,8 +138,51 @@ class LoginWindow(QWidget):
         self.login_buttons.setId(self.back_button, 0)
         buttons_layout.addStretch(50)
 
+        self.resp = QDialog()
+        self.resp.resize(200, 100)
+        self.resp.setWindowTitle(' ')
+        self.resp.setWindowModality(Qt.ApplicationModal)
+        self.resp_layout = QVBoxLayout()
+        self.resp_label = QLabel('Login Successful!', self.resp)
+        self.resp_label.setAlignment(Qt.AlignCenter)
+        self.resp_button = QPushButton('Ok', self.resp)
+        self.resp_button_group = QButtonGroup()
+        self.resp_layout.addWidget(self.resp_label)
+        self.resp_layout.addWidget(self.resp_button)
+        self.resp.setLayout(self.resp_layout)
+
+        self.login_button.clicked.connect(self.login_clicked)
+        self.user_name_edit.textEdited.connect(self.login_auth)
+        self.password_edit.textEdited.connect(self.login_auth)
+
         self.setLayout(main_grid)
         self.show()
+
+    def login_auth(self):
+        un = self.user_name_edit.text()
+        pw = self.password_edit.text()
+        c = conn.cursor()
+        c.execute(" SELECT username FROM users")
+        conn.commit()
+        users_list = [u[0] for u in c.fetchall()]
+        c.execute(" SELECT password FROM users")
+        conn.commit()
+        pws_list = [u[0] for u in c.fetchall()]
+        if un in users_list:
+            self.wrong_label.setText('')
+            un_id = users_list.index(un)
+            if pw == pws_list[un_id]:
+                self.login_button.setEnabled(True)
+            else:
+                self.login_button.setEnabled(False)
+        else:
+            self.login_button.setEnabled(False)
+            self.wrong_label.setText('The username does not exist')
+            self.wrong_label.setStyleSheet('color:red')
+
+    def login_clicked(self):
+        self.resp_button_group.addButton(self.resp_button, 0)
+        self.resp.exec_()
 
 
 class CreateAccWindow(QWidget):
