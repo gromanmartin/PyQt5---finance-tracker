@@ -10,9 +10,9 @@ class ApplicationWindow(QWidget):
 
     def __init__(self):
         super(ApplicationWindow, self).__init__()
-        # self.menu = MenuWindow()
-        # self.login = LoginWindow()
-        # self.createacc = CreateAccWindow()
+        self.menu = MenuWindow()
+        self.login = LoginWindow()
+        self.createacc = CreateAccWindow()
         self.core = CoreMenuWindow()
 
         self.setGeometry(0, 0, 800, 600)
@@ -26,25 +26,25 @@ class ApplicationWindow(QWidget):
         self.stack = QStackedWidget()
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
+        # self.stack.setCurrentWidget(self.corestack)  # FOR TESTING
+
+        self.stack.addWidget(self.menu)
+        self.stack.addWidget(self.login)
+        self.stack.addWidget(self.createacc)
+        self.stack.addWidget(self.core)
         self.corestack = QStackedWidget()
-        self.stack.addWidget(self.corestack)
+        # self.stack.addWidget(self.corestack)
         self.corestack.addWidget(self.core)
 
-        self.stack.setCurrentWidget(self.corestack)
+        self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
+        self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
+        # self.login.resp_button.clicked.connect(self.logged_in)
+        self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
 
-        # self.stack.addWidget(self.menu)
-        # self.stack.addWidget(self.login)
-        # self.stack.addWidget(self.createacc)
-        # # self.stack.addWidget(self.core)
-        #
-        # self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
-        # self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
-        # # self.login.resp_button.clicked.connect(self.logged_in)
-        # self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
 
         layout = QVBoxLayout()
         layout.addWidget(self.stack)
@@ -55,6 +55,8 @@ class ApplicationWindow(QWidget):
         self.stack.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.stack.addWidget(self.corestack)
         self.stack.setCurrentWidget(self.corestack)
+        logged_username = self.login.login_auth()
+        self.core.logged_label.setText('Logged in as: {}'.format(logged_username))
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
 
@@ -194,6 +196,7 @@ class LoginWindow(QWidget):
             self.login_button.setEnabled(False)
             self.wrong_label.setText('The username does not exist')
             self.wrong_label.setStyleSheet('color:red')
+        return un
 
     def login_clicked(self):
         self.resp_button_group.addButton(self.resp_button, 3)
@@ -385,22 +388,26 @@ class CoreMenuWindow(QWidget):
 
         topbar = QHBoxLayout()
         self.current_widget_label = QLabel('Overview')
-        self.current_widget_label.setAlignment(Qt.AlignCenter)
+        self.current_widget_label.setAlignment(Qt.AlignVCenter)
         self.current_widget_label.setFixedSize(700, 100)
         self.current_widget_label.setStyleSheet('font: 42pt')
 
+        self.logged_username = ''
+        self.logged_label = QLabel()
+        self.logged_label.setAlignment(Qt.AlignBottom | Qt.AlignRight)
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setLineWidth(1)
         topbar.addStretch(100)
         topbar.addWidget(self.current_widget_label)
+        topbar.addWidget(self.logged_label)
         topbar.addStretch(100)
 
         self.leftmenu_overview_button = QPushButton('Overview')
         self.leftmenu_history_button = QPushButton('History')
         self.leftmenu_charts_button = QPushButton('Charts')
         self.leftmenu_tbc_button = QPushButton('Manage')
-        self.leftmenu_exit_button = QPushButton('Exit')
+        self.leftmenu_exit_button = QPushButton('Logout')
 
         self.leftmenu_button_group = QButtonGroup()
         leftmenu_layout = QVBoxLayout()
@@ -416,7 +423,6 @@ class CoreMenuWindow(QWidget):
 
         self.overview_frame = QFrame()
         self.setup_overview()
-
         self.history_frame = QFrame()
         self.setup_history()
 
@@ -428,6 +434,7 @@ class CoreMenuWindow(QWidget):
         self.mainwindow_layout.addWidget(self.overview_frame)
         self.mainwindow_layout.addWidget(self.history_frame)
 
+        self.select_overview()
         self.leftmenu_overview_button.clicked.connect(self.select_overview)
         self.leftmenu_history_button.clicked.connect(self.select_history)
 
@@ -495,6 +502,7 @@ class CoreMenuWindow(QWidget):
         for frame in self.all_frames:
             frame.hide()
         self.overview_frame.show()
+        self.current_widget_label.setText('Overview')
 
     def setup_history(self):
         history_layout = QVBoxLayout()
@@ -510,6 +518,7 @@ class CoreMenuWindow(QWidget):
         for frame in self.all_frames:
             frame.hide()
         self.history_frame.show()
+        self.current_widget_label.setText('History')
 
 
 if __name__ == '__main__':
