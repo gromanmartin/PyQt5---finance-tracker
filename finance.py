@@ -10,9 +10,10 @@ class ApplicationWindow(QWidget):
 
     def __init__(self):
         super(ApplicationWindow, self).__init__()
-        self.menu = MenuWindow()
-        self.login = LoginWindow()
-        self.createacc = CreateAccWindow()
+        # self.menu = MenuWindow()
+        # self.login = LoginWindow()
+        # self.createacc = CreateAccWindow()
+        self.core = CoreMenuWindow()
 
         self.setGeometry(0, 0, 800, 600)
         self.setWindowTitle('Finance tracker')
@@ -24,23 +25,37 @@ class ApplicationWindow(QWidget):
 
         self.stack = QStackedWidget()
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
-        self.stack.addWidget(self.menu)
-        self.stack.addWidget(self.login)
-        self.stack.addWidget(self.createacc)
-        # self.stack.setCurrentWidget(self.menu)
 
-        self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
-        self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.login.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex) # TO BE CONTINUED
-        self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
+        self.corestack = QStackedWidget()
+        self.stack.addWidget(self.corestack)
+        self.corestack.addWidget(self.core)
+
+        self.stack.setCurrentWidget(self.corestack)
+
+        # self.stack.addWidget(self.menu)
+        # self.stack.addWidget(self.login)
+        # self.stack.addWidget(self.createacc)
+        # # self.stack.addWidget(self.core)
+        #
+        # self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
+        # self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
+        # # self.login.resp_button.clicked.connect(self.logged_in)
+        # self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
 
         layout = QVBoxLayout()
         layout.addWidget(self.stack)
         layout.setAlignment(Qt.AlignCenter)
         self.setLayout(layout)
+
+    def logged_in(self):
+        self.stack.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        self.stack.addWidget(self.corestack)
+        self.stack.setCurrentWidget(self.corestack)
+        self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
 
 class MenuWindow(QWidget):
@@ -181,7 +196,7 @@ class LoginWindow(QWidget):
             self.wrong_label.setStyleSheet('color:red')
 
     def login_clicked(self):
-        self.resp_button_group.addButton(self.resp_button, 0)
+        self.resp_button_group.addButton(self.resp_button, 3)
         self.resp.exec_()
 
 
@@ -354,6 +369,147 @@ class CreateAccWindow(QWidget):
             self.resp_button_group.addButton(self.resp_button, self.resp_button_group_id)
             self.resp_label.setText('Choose different username')
             self.resp.exec_()
+
+
+class CoreMenuWindow(QWidget):
+
+    def __init__(self):
+        super(CoreMenuWindow, self).__init__()
+        self.setGeometry(0, 0, 750, 550)
+        box = QVBoxLayout()
+
+        self.setAutoFillBackground(True)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), Qt.lightGray)
+        self.setPalette(p)
+
+        topbar = QHBoxLayout()
+        self.current_widget_label = QLabel('Overview')
+        self.current_widget_label.setAlignment(Qt.AlignCenter)
+        self.current_widget_label.setFixedSize(700, 100)
+        self.current_widget_label.setStyleSheet('font: 42pt')
+
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setLineWidth(1)
+        topbar.addStretch(100)
+        topbar.addWidget(self.current_widget_label)
+        topbar.addStretch(100)
+
+        self.leftmenu_overview_button = QPushButton('Overview')
+        self.leftmenu_history_button = QPushButton('History')
+        self.leftmenu_charts_button = QPushButton('Charts')
+        self.leftmenu_tbc_button = QPushButton('Manage')
+        self.leftmenu_exit_button = QPushButton('Exit')
+
+        self.leftmenu_button_group = QButtonGroup()
+        leftmenu_layout = QVBoxLayout()
+        for i, button in enumerate([self.leftmenu_overview_button, self.leftmenu_history_button,
+                                    self.leftmenu_charts_button, self.leftmenu_tbc_button, self.leftmenu_exit_button]):
+            button.setFixedSize(150, 50)
+            button.setStyleSheet('border:1px solid black')
+            self.leftmenu_button_group.addButton(button)
+            self.leftmenu_button_group.setId(button, i+1)
+            leftmenu_layout.addWidget(button, alignment=Qt.AlignLeft)
+
+        self.all_frames = []
+
+        self.overview_frame = QFrame()
+        self.setup_overview()
+
+        self.history_frame = QFrame()
+        self.setup_history()
+
+        self.mainwindow_layout = QHBoxLayout()
+        box.addLayout(topbar)
+        box.addWidget(separator)
+        box.addLayout(self.mainwindow_layout)
+        self.mainwindow_layout.addLayout(leftmenu_layout)
+        self.mainwindow_layout.addWidget(self.overview_frame)
+        self.mainwindow_layout.addWidget(self.history_frame)
+
+        self.leftmenu_overview_button.clicked.connect(self.select_overview)
+        self.leftmenu_history_button.clicked.connect(self.select_history)
+
+        self.setLayout(box)
+        self.show()
+
+    def setup_overview(self):
+        c = conn.cursor()
+        overview_layout = QVBoxLayout()
+        self.overview_frame.setLayout(overview_layout)
+        self.overview_frame.hide()
+        self.all_frames.append(self.overview_frame)
+
+        query = c.execute("""   SELECT SUM(amount)
+                                FROM finances                
+                            """)
+        bal = query.fetchone()
+        accbalance_label = QLabel()
+        accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+        accbalance_label.setText('Balance: {}$'.format(bal[0]))
+        if bal[0] > 0:
+            accbalance_label.setStyleSheet('color: green')
+        else:
+            accbalance_label.setStyleSheet('color: red')
+
+        table_label = QLabel('Table showing last 5 balance changes')
+        table_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+        table = QTableWidget()
+        table.setMaximumHeight(250)
+        table.setRowCount(5)
+        table.setColumnCount(4)
+
+        header = table.horizontalHeader()
+        for i in range(0, 4):
+            header.setSectionResizeMode(i, QHeaderView.Stretch)
+
+        header2 = table.verticalHeader()
+        for i in range(0, 5):
+            header2.setSectionResizeMode(i, QHeaderView.Stretch)
+
+        table.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
+        query = c.execute("""   SELECT amount, type, category, date
+                            FROM finances 
+                            ORDER BY date DESC
+                            LIMIT 5""")
+        querylist = [a for a in query.fetchall()]
+        for i in range(0, 5):
+            for j in range(0, 4):
+                if j == 0:
+                    item = QTableWidgetItem()
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setData(Qt.EditRole, querylist[i][j])
+                    table.setItem(i, j, item)
+                else:
+                    item = QTableWidgetItem(querylist[i][j])
+                    item.setTextAlignment(Qt.AlignCenter)
+                    table.setItem(i, j, item)
+
+        overview_layout.addWidget(accbalance_label)
+        overview_layout.addWidget(table_label)
+        overview_layout.addWidget(table)
+
+    def select_overview(self):
+        for frame in self.all_frames:
+            frame.hide()
+        self.overview_frame.show()
+
+    def setup_history(self):
+        history_layout = QVBoxLayout()
+        self.history_frame.setLayout(history_layout)
+        self.history_frame.hide()
+        self.all_frames.append(self.history_frame)
+
+        label = QLabel('loooooooool')
+        label.setAlignment(Qt.AlignCenter)
+        history_layout.addWidget(label)
+
+    def select_history(self):
+        for frame in self.all_frames:
+            frame.hide()
+        self.history_frame.show()
 
 
 if __name__ == '__main__':
