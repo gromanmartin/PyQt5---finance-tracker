@@ -10,9 +10,9 @@ class ApplicationWindow(QWidget):
 
     def __init__(self):
         super(ApplicationWindow, self).__init__()
-        self.menu = MenuWindow()
-        self.login = LoginWindow()
-        self.createacc = CreateAccWindow()
+        # self.menu = MenuWindow()
+        # self.login = LoginWindow()
+        # self.createacc = CreateAccWindow()
         self.core = CoreMenuWindow()
 
         self.setGeometry(0, 0, 800, 600)
@@ -26,24 +26,25 @@ class ApplicationWindow(QWidget):
         self.stack = QStackedWidget()
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
-        # self.stack.setCurrentWidget(self.corestack)  # FOR TESTING
 
-        self.stack.addWidget(self.menu)
-        self.stack.addWidget(self.login)
-        self.stack.addWidget(self.createacc)
+
+        # self.stack.addWidget(self.menu)
+        # self.stack.addWidget(self.login)
+        # self.stack.addWidget(self.createacc)
         self.stack.addWidget(self.core)
         self.corestack = QStackedWidget()
-        # self.stack.addWidget(self.corestack)
+        self.stack.addWidget(self.corestack)  # TESTING
         self.corestack.addWidget(self.core)
+        self.stack.setCurrentWidget(self.corestack)  # TESTING
 
-        self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
-        self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
-        # self.login.resp_button.clicked.connect(self.logged_in)
-        self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
+        # self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
+        # self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
+        # self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
+        # # self.login.resp_button.clicked.connect(self.logged_in)
+        # self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
 
 
         layout = QVBoxLayout()
@@ -505,20 +506,123 @@ class CoreMenuWindow(QWidget):
         self.current_widget_label.setText('Overview')
 
     def setup_history(self):
+        c = conn.cursor()
         history_layout = QVBoxLayout()
         self.history_frame.setLayout(history_layout)
         self.history_frame.hide()
         self.all_frames.append(self.history_frame)
 
-        label = QLabel('loooooooool')
-        label.setAlignment(Qt.AlignCenter)
-        history_layout.addWidget(label)
+        top_layout = QHBoxLayout()
+        top_layout.setAlignment(Qt.AlignTop)
+        label = QLabel('Filters:')
+        label.setAlignment(Qt.AlignVCenter)
+        self.cb1 = QComboBox()
+        self.cb2 = QComboBox()
+        self.cb3 = QComboBox()
+        self.cb4 = QComboBox()
+
+        inout_list = ['In/Out', 'in', 'out']
+        cat_list = ['Category', 'Income', 'Other income', 'Shopping', 'Rent', 'Fun', 'Other bills']
+        year_list = ['Year', '2020', '2019', '2018']
+        date_list = ['Month', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+                     'October', 'November', 'December']
+        lists = [inout_list, cat_list, year_list, date_list]
+        self.cb1.addItems(inout_list)
+        self.cb2.addItems(cat_list)
+        self.cb3.addItems(year_list)
+        self.cb4.addItems(date_list)
+
+        # self.confirm_button = QPushButton('Confirm')
+
+        top_layout.addWidget(label)
+        top_layout.addWidget(self.cb1)
+        top_layout.addWidget(self.cb2)
+        top_layout.addWidget(self.cb3)
+        top_layout.addWidget(self.cb4)
+        # top_layout.addWidget(self.confirm_button)
+
+        self.table = QTableWidget()
+        self.table.setMaximumHeight(250)
+        self.table.setColumnCount(4)
+
+        header = self.table.horizontalHeader()
+        for i in range(0, 4):
+            header.setSectionResizeMode(i, QHeaderView.Stretch)
+        self.table.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
+
+        query = c.execute("""   SELECT amount, type, category, date
+                                                    FROM finances 
+                                                    """)
+        querylist = [a for a in query.fetchall()]
+        self.table.setRowCount(len(querylist))
+        for i in range(0, len(querylist)):
+            for j in range(0, 4):
+                if j == 0:
+                    item = QTableWidgetItem()
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setData(Qt.EditRole, querylist[i][j])
+                    self.table.setItem(i, j, item)
+                else:
+                    item = QTableWidgetItem(querylist[i][j])
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.table.setItem(i, j, item)
+
+        # self.confirm_button.clicked.connect(self.history_query)
+        self.cb1.currentIndexChanged.connect(self.history_query)
+        self.cb2.currentIndexChanged.connect(self.history_query)
+        self.cb3.currentIndexChanged.connect(self.history_query)
+        self.cb4.currentIndexChanged.connect(self.history_query)
+
+        history_layout.addLayout(top_layout)
+        history_layout.addWidget(self.table)
 
     def select_history(self):
         for frame in self.all_frames:
             frame.hide()
         self.history_frame.show()
         self.current_widget_label.setText('History')
+
+    def history_query(self):
+        c = conn.cursor()
+        cblist = [self.cb1.currentIndex(), self.cb2.currentIndex(), self.cb3.currentIndex(), self.cb4.currentIndex()]
+        c3_year = self.cb3.currentText()[:4]
+        c4_month = self.cb4.currentText()
+        dict= {'Month':'00', 'January':'01', 'February':'02', 'March':'03', 'April':'04', 'May':'05', 'June':'06', 'July':'07',
+               'August':'08', 'September':'09', 'October':'10', 'November':'11', 'December':'12'}
+        crits = []
+        c1_text = "type =='{}'".format(self.cb1.currentText())
+        c2_text = "category == '{}'".format(self.cb2.currentText())
+        c3_text = "date LIKE '%{}%'".format(c3_year)
+        c4_text = "date LIKE '%-{}-%'".format(dict[c4_month])
+        texts = [c1_text, c2_text, c3_text, c4_text]
+        for i, item in enumerate(cblist):
+            if item > 0:
+                crits.append(texts[i])
+        where_string = '' + ' AND '.join(crits)
+        print(where_string)
+        if where_string == '':
+            query = c.execute("""   SELECT amount, type, category, date
+                                            FROM finances 
+                                            """)
+            querylist = [a for a in query.fetchall()]
+        else:
+            query = c.execute("""   SELECT amount, type, category, date
+                                            FROM finances 
+                                            WHERE
+                                            """ + where_string)
+            querylist = [a for a in query.fetchall()]
+        self.table.setRowCount(len(querylist))
+        for i in range(0, len(querylist)):
+            for j in range(0, 4):
+                if j == 0:
+                    item = QTableWidgetItem()
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setData(Qt.EditRole, querylist[i][j])
+                    self.table.setItem(i, j, item)
+                else:
+                    item = QTableWidgetItem(querylist[i][j])
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.table.setItem(i, j, item)
 
 
 if __name__ == '__main__':
