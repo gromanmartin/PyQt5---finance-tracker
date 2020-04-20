@@ -407,13 +407,13 @@ class CoreMenuWindow(QWidget):
         self.leftmenu_overview_button = QPushButton('Overview')
         self.leftmenu_history_button = QPushButton('History')
         self.leftmenu_charts_button = QPushButton('Charts')
-        self.leftmenu_tbc_button = QPushButton('Manage')
+        self.leftmenu_manage_button = QPushButton('Manage')
         self.leftmenu_exit_button = QPushButton('Logout')
 
         self.leftmenu_button_group = QButtonGroup()
         leftmenu_layout = QVBoxLayout()
         for i, button in enumerate([self.leftmenu_overview_button, self.leftmenu_history_button,
-                                    self.leftmenu_charts_button, self.leftmenu_tbc_button, self.leftmenu_exit_button]):
+                                    self.leftmenu_charts_button, self.leftmenu_manage_button, self.leftmenu_exit_button]):
             button.setFixedSize(150, 50)
             button.setStyleSheet('border:1px solid black')
             self.leftmenu_button_group.addButton(button)
@@ -426,6 +426,8 @@ class CoreMenuWindow(QWidget):
         self.setup_overview()
         self.history_frame = QFrame()
         self.setup_history()
+        self.manage_frame = QFrame()
+        self.setup_manage()
 
         self.mainwindow_layout = QHBoxLayout()
         box.addLayout(topbar)
@@ -434,10 +436,12 @@ class CoreMenuWindow(QWidget):
         self.mainwindow_layout.addLayout(leftmenu_layout)
         self.mainwindow_layout.addWidget(self.overview_frame)
         self.mainwindow_layout.addWidget(self.history_frame)
+        self.mainwindow_layout.addWidget(self.manage_frame)
 
         self.select_overview()
         self.leftmenu_overview_button.clicked.connect(self.select_overview)
         self.leftmenu_history_button.clicked.connect(self.select_history)
+        self.leftmenu_manage_button.clicked.connect(self.select_manage)
 
         self.setLayout(box)
         self.show()
@@ -623,6 +627,131 @@ class CoreMenuWindow(QWidget):
                     item = QTableWidgetItem(querylist[i][j])
                     item.setTextAlignment(Qt.AlignCenter)
                     self.table.setItem(i, j, item)
+
+    def setup_manage(self):
+        manage_layout = QVBoxLayout()
+        self.manage_frame.setLayout(manage_layout)
+        self.manage_frame.hide()
+        self.all_frames.append(self.manage_frame)
+
+        main_label = QLabel('Insert a new income/expense:')
+        main_label.setAlignment(Qt.AlignLeft)
+        amount_label = QLabel('Amount')
+        amount_label.setFixedWidth(100)
+        self.amount_edit = QLineEdit()
+        self.amount_edit.setFixedWidth(100)
+        self.amount_edit.setValidator(QDoubleValidator(0.99, 99.99, 2))
+
+        type_label = QLabel('Type')
+        type_label.setFixedWidth(100)
+        self.type_edit = QComboBox()
+        self.type_edit.setFixedWidth(100)
+        inout_list = ['In/Out', 'in', 'out']
+
+
+        category_label = QLabel('Category')
+        category_label.setFixedWidth(100)
+        self.category_edit = QComboBox()
+        self.category_edit.setEnabled(True)
+        self.category_edit.setFixedWidth(100)
+        self.type_edit.addItem('In/Out', ['Category'])
+        self.type_edit.addItem('in', ['Category', 'Income', 'Other income'])
+        self.type_edit.addItem('out',['Category', 'Shopping', 'Rent', 'Fun', 'Other bills'])
+
+
+        date_label = QLabel('Date (YYYY-MM-DD)')
+        date_label.setFixedWidth(100)
+        self.date_edit = QLineEdit()
+        date_regex = QRegExp("(19[0-9][0-9]|20[0-2][0-9])-(0[1-9]|[1][0-2])-(0[1-9]|[12][0-9]|3[01])")
+        valid = QRegExpValidator(date_regex)
+        self.date_edit.setValidator(valid)
+        self.date_edit.setFixedWidth(100)
+
+        self.insert_button = QPushButton('Insert')
+        self.insert_button.setFixedWidth(100)
+        self.insert_button.setEnabled(False)
+        self.insert_label = QLabel('')
+        self.insert_label.setStyleSheet('color:red')
+        self.insert_label.setFixedWidth(150)
+        insert_layout = QHBoxLayout()
+        insert_layout.addWidget(self.insert_button, alignment=Qt.AlignLeft)
+        insert_layout.addWidget(self.insert_label, alignment=Qt.AlignLeft)
+        insert_layout.addStretch(100)
+
+        main_grid = QVBoxLayout()
+        main_grid.addWidget(main_label)
+        grids = []
+        for i in range(0, 4):
+            new_grid = QHBoxLayout()
+            grids.append(new_grid)
+            main_grid.addLayout(grids[i])
+
+        form_list = [(amount_label, self.amount_edit), (type_label, self.type_edit), (category_label, self.category_edit),
+                     (date_label, self.date_edit)]
+        for i, pair in enumerate(form_list):
+            grids[i].addWidget(pair[0])
+            grids[i].addWidget(pair[1])
+            grids[i].addStretch(100)
+        main_grid.addLayout(insert_layout)
+        main_grid.addStretch(200)
+
+        self.amount_edit.textEdited.connect(self.manage_insert_button_enable)
+        self.type_edit.currentIndexChanged.connect(self.manage_insert_button_enable)
+
+        self.type_edit.currentIndexChanged.connect(self.block_cat)
+        self.block_cat(self.type_edit.currentIndex())
+
+        self.category_edit.currentIndexChanged.connect(self.manage_insert_button_enable)
+        self.date_edit.textEdited.connect(self.manage_insert_button_enable)
+        self.insert_button.clicked.connect(self.insert_into_db)
+        manage_layout.addLayout(main_grid)
+
+    def select_manage(self):
+        for frame in self.all_frames:
+            frame.hide()
+        self.manage_frame.show()
+        self.current_widget_label.setText('Manage')
+
+    def manage_insert_button_enable(self):
+
+        if self.amount_edit.text() == '':
+            am = 0
+        else:
+            am = float(self.amount_edit.text())
+        type_ind = self.type_edit.currentIndex()
+        cat_ind = self.category_edit.currentIndex()
+        date_text = len(self.date_edit.text())
+
+        if (am > 0) & (type_ind > 0) & (cat_ind > 0) & (date_text == 10):
+            self.insert_button.setEnabled(True)
+            self.insert_label.setText('')
+        else:
+            self.insert_button.setEnabled(False)
+            self.insert_label.setText('Fill out all the fields to continue')
+
+    def block_cat(self, index):
+        self.category_edit.clear()
+        data = self.type_edit.itemData(index)
+        if data is not None:
+            self.category_edit.addItems(data)
+
+    def insert_into_db(self):
+        c = conn.cursor()
+        amount = float(self.amount_edit.text())
+        type = self.type_edit.currentText()
+        if type == 'out':
+            amount = - amount
+        cat = self.category_edit.currentText()
+        date = self.date_edit.text()
+        print(amount, type, cat, date)
+        query = c.execute(" SELECT id FROM finances")
+        last_id = [a[0] for a in query.fetchall()][-1]
+        new_id = last_id + 1
+        id_u = 0
+        c.execute(""" INSERT INTO finances 
+                              VALUES (:id, :amount, :type, :category, :date, :id_user) """, {'id': new_id, 'amount': amount,
+                                'type': type, 'category': cat, 'date': date, 'id_user': id_u})
+        conn.commit()
 
 
 if __name__ == '__main__':
