@@ -412,7 +412,7 @@ class CoreMenuWindow(QWidget):
         self.leftmenu_history_button = QPushButton('History')
         self.leftmenu_charts_button = QPushButton('Charts')
         self.leftmenu_manage_button = QPushButton('Manage')
-        self.leftmenu_exit_button = QPushButton('Logout')
+        self.leftmenu_exit_button = QPushButton('Exit')
 
         self.leftmenu_button_group = QButtonGroup()
         leftmenu_layout = QVBoxLayout()
@@ -427,8 +427,18 @@ class CoreMenuWindow(QWidget):
         self.all_frames = []
 
         self.overview_frame = QFrame()
-        # self.setup_overview()
+        self.all_frames.append(self.overview_frame)
+        self.overview_layout = QVBoxLayout()
+        self.overview_frame.setLayout(self.overview_layout)
+        self.accbalance_label = QLabel()
+        self.table_overview = QTableWidget()
+
+
         self.history_frame = QFrame()
+        self.all_frames.append(self.history_frame)
+        self.history_layout = QVBoxLayout()
+        self.history_frame.setLayout(self.history_layout)
+        self.table_history = QTableWidget()
         # self.setup_history()
         self.manage_frame = QFrame()
         # self.setup_manage()
@@ -445,6 +455,7 @@ class CoreMenuWindow(QWidget):
         self.leftmenu_overview_button.clicked.connect(self.select_overview)
         self.leftmenu_history_button.clicked.connect(self.select_history)
         self.leftmenu_manage_button.clicked.connect(self.select_manage)
+        self.leftmenu_exit_button.clicked.connect(sys.exit)
 
         self.setLayout(box)
         self.show()
@@ -455,45 +466,70 @@ class CoreMenuWindow(QWidget):
         self.setup_manage()
         self.select_overview()
 
+    def update_overview(self):
+        c = conn.cursor()
+        query = c.execute("""   SELECT SUM(amount)
+                                        FROM finances
+                                        WHERE id_user == {}              
+                                    """.format(self.logged_id))
+        bal = query.fetchone()
+        self.accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+        self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
+        if bal[0] > 0:
+            self.accbalance_label.setStyleSheet('color: green')
+        else:
+            self.accbalance_label.setStyleSheet('color: red')
+
+        query = c.execute("""   SELECT amount, type, category, date
+                                    FROM finances
+                                    WHERE id_user == {}
+                                    ORDER BY date DESC
+                                    LIMIT 5""".format(self.logged_id))
+        querylist = [a for a in query.fetchall()]
+        for i in range(0, len(querylist)):
+            for j in range(0, 4):
+                if j == 0:
+                    item = QTableWidgetItem()
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setData(Qt.EditRole, querylist[i][j])
+                    self.table_overview.setItem(i, j, item)
+                else:
+                    item = QTableWidgetItem(querylist[i][j])
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.table_overview.setItem(i, j, item)
+
     def setup_overview(self):
         c = conn.cursor()
-        overview_layout = QVBoxLayout()
-        self.overview_frame.setLayout(overview_layout)
         self.overview_frame.hide()
-        self.all_frames.append(self.overview_frame)
 
         query = c.execute("""   SELECT SUM(amount)
                                 FROM finances
                                 WHERE id_user == {}              
                             """.format(self.logged_id))
         bal = query.fetchone()
-        accbalance_label = QLabel()
-        accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
-        accbalance_label.setText('Balance: {}$'.format(bal[0]))
+        self.accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
+        self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
         if bal[0] > 0:
-            accbalance_label.setStyleSheet('color: green')
+            self.accbalance_label.setStyleSheet('color: green')
         else:
-            accbalance_label.setStyleSheet('color: red')
+            self.accbalance_label.setStyleSheet('color: red')
 
         table_label = QLabel('Table showing last 5 balance changes')
         table_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
-        table = QTableWidget()
-        table.setMaximumHeight(250)
-        table.setRowCount(5)
-        table.setColumnCount(4)
-
-        header = table.horizontalHeader()
+        self.table_overview.setMaximumHeight(250)
+        self.table_overview.setRowCount(5)
+        self.table_overview.setColumnCount(4)
+        header = self.table_overview.horizontalHeader()
         for i in range(0, 4):
             header.setSectionResizeMode(i, QHeaderView.Stretch)
-
-        header2 = table.verticalHeader()
+        header2 = self.table_overview.verticalHeader()
         for i in range(0, 5):
             header2.setSectionResizeMode(i, QHeaderView.Stretch)
 
-        table.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
+        self.table_overview.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
         query = c.execute("""   SELECT amount, type, category, date
-                            FROM finances 
+                            FROM finances
                             WHERE id_user == {}
                             ORDER BY date DESC
                             LIMIT 5""".format(self.logged_id))
@@ -504,28 +540,46 @@ class CoreMenuWindow(QWidget):
                     item = QTableWidgetItem()
                     item.setTextAlignment(Qt.AlignCenter)
                     item.setData(Qt.EditRole, querylist[i][j])
-                    table.setItem(i, j, item)
+                    self.table_overview.setItem(i, j, item)
                 else:
                     item = QTableWidgetItem(querylist[i][j])
                     item.setTextAlignment(Qt.AlignCenter)
-                    table.setItem(i, j, item)
+                    self.table_overview.setItem(i, j, item)
 
-        overview_layout.addWidget(accbalance_label)
-        overview_layout.addWidget(table_label)
-        overview_layout.addWidget(table)
+        self.overview_layout.addWidget(self.accbalance_label)
+        self.overview_layout.addWidget(table_label)
+        self.overview_layout.addWidget(self.table_overview)
 
     def select_overview(self):
         for frame in self.all_frames:
             frame.hide()
+        self.update_overview()
         self.overview_frame.show()
         self.current_widget_label.setText('Overview')
 
+    def update_history(self):
+        c = conn.cursor()
+        query = c.execute("""   SELECT amount, type, category, date
+                                                            FROM finances 
+                                                            WHERE id_user == {}
+                                                            """.format(self.logged_id))
+        querylist = [a for a in query.fetchall()]
+        self.table_history.setRowCount(len(querylist))
+        for i in range(0, len(querylist)):
+            for j in range(0, 4):
+                if j == 0:
+                    item = QTableWidgetItem()
+                    item.setTextAlignment(Qt.AlignCenter)
+                    item.setData(Qt.EditRole, querylist[i][j])
+                    self.table_history.setItem(i, j, item)
+                else:
+                    item = QTableWidgetItem(querylist[i][j])
+                    item.setTextAlignment(Qt.AlignCenter)
+                    self.table_history.setItem(i, j, item)
+
     def setup_history(self):
         c = conn.cursor()
-        history_layout = QVBoxLayout()
-        self.history_frame.setLayout(history_layout)
         self.history_frame.hide()
-        self.all_frames.append(self.history_frame)
 
         top_layout = QHBoxLayout()
         top_layout.setAlignment(Qt.AlignTop)
@@ -556,32 +610,31 @@ class CoreMenuWindow(QWidget):
         top_layout.addWidget(self.cb4)
         # top_layout.addWidget(self.confirm_button)
 
-        self.table = QTableWidget()
-        self.table.setMaximumHeight(250)
-        self.table.setColumnCount(4)
+        self.table_history.setMaximumHeight(250)
+        self.table_history.setColumnCount(4)
 
-        header = self.table.horizontalHeader()
+        header = self.table_history.horizontalHeader()
         for i in range(0, 4):
             header.setSectionResizeMode(i, QHeaderView.Stretch)
-        self.table.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
+        self.table_history.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
 
         query = c.execute("""   SELECT amount, type, category, date
                                                     FROM finances 
                                                     WHERE id_user == {}
                                                     """.format(self.logged_id))
         querylist = [a for a in query.fetchall()]
-        self.table.setRowCount(len(querylist))
+        self.table_history.setRowCount(len(querylist))
         for i in range(0, len(querylist)):
             for j in range(0, 4):
                 if j == 0:
                     item = QTableWidgetItem()
                     item.setTextAlignment(Qt.AlignCenter)
                     item.setData(Qt.EditRole, querylist[i][j])
-                    self.table.setItem(i, j, item)
+                    self.table_history.setItem(i, j, item)
                 else:
                     item = QTableWidgetItem(querylist[i][j])
                     item.setTextAlignment(Qt.AlignCenter)
-                    self.table.setItem(i, j, item)
+                    self.table_history.setItem(i, j, item)
 
         # self.confirm_button.clicked.connect(self.history_query)
         self.cb1.currentIndexChanged.connect(self.history_query)
@@ -589,12 +642,13 @@ class CoreMenuWindow(QWidget):
         self.cb3.currentIndexChanged.connect(self.history_query)
         self.cb4.currentIndexChanged.connect(self.history_query)
 
-        history_layout.addLayout(top_layout)
-        history_layout.addWidget(self.table)
+        self.history_layout.addLayout(top_layout)
+        self.history_layout.addWidget(self.table_history)
 
     def select_history(self):
         for frame in self.all_frames:
             frame.hide()
+        self.update_history()
         self.history_frame.show()
         self.current_widget_label.setText('History')
 
@@ -615,7 +669,7 @@ class CoreMenuWindow(QWidget):
             if item > 0:
                 crits.append(texts[i])
         where_string = 'AND ' + ' AND '.join(crits)
-        print(where_string)
+        # print(where_string)
         if where_string == '':
             query = c.execute("""   SELECT amount, type, category, date
                                             FROM finances 
