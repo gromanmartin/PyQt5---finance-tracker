@@ -10,9 +10,9 @@ class ApplicationWindow(QWidget):
 
     def __init__(self):
         super(ApplicationWindow, self).__init__()
-        # self.menu = MenuWindow()
-        # self.login = LoginWindow()
-        # self.createacc = CreateAccWindow()
+        self.menu = MenuWindow()    # COMMENT FOR TEST
+        self.login = LoginWindow()    # COMMENT FOR TEST
+        self.createacc = CreateAccWindow()     # COMMENT FOR TEST
         self.core = CoreMenuWindow()
 
         self.setGeometry(0, 0, 800, 600)
@@ -26,26 +26,23 @@ class ApplicationWindow(QWidget):
         self.stack = QStackedWidget()
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
 
-
-
-        # self.stack.addWidget(self.menu)
-        # self.stack.addWidget(self.login)
-        # self.stack.addWidget(self.createacc)
+        self.stack.addWidget(self.menu)    # COMMENT FOR TEST
+        self.stack.addWidget(self.login)  # COMMENT FOR TEST
+        self.stack.addWidget(self.createacc)  # COMMENT FOR TEST
         self.stack.addWidget(self.core)
         self.corestack = QStackedWidget()
-        self.stack.addWidget(self.corestack)  # TESTING
+        # self.stack.addWidget(self.corestack)  # TESTING
         self.corestack.addWidget(self.core)
-        self.stack.setCurrentWidget(self.corestack)  # TESTING
+        # self.stack.setCurrentWidget(self.corestack)  # TESTING
 
-        # self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)
-        # self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)
-        # self.login.resp_button_group.buttonClicked[int].connect(self.logged_in) # TO BE CONTINUED
-        # # self.login.resp_button.clicked.connect(self.logged_in)
-        # self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)
-
+        self.menu.group_button.buttonClicked[int].connect(self.stack.setCurrentIndex)             # COMMENT FOR TEST
+        self.createacc.createacc_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)   # COMMENT FOR TEST
+        self.createacc.resp_button_group.buttonClicked[int].connect(self.stack.setCurrentIndex)   # COMMENT FOR TEST
+        self.createacc.resp_button_group.buttonClicked[int].connect(self.createacc.resp.close)    # COMMENT FOR TEST
+        self.login.login_buttons.buttonClicked[int].connect(self.stack.setCurrentIndex)           # COMMENT FOR TEST
+        self.login.resp_button_group.buttonClicked[int].connect(self.logged_in)                   # COMMENT FOR TEST
+        # self.login.resp_button.clicked.connect(self.logged_in)
+        self.login.resp_button_group.buttonClicked[int].connect(self.login.resp.close)            # COMMENT FOR TEST
 
         layout = QVBoxLayout()
         layout.addWidget(self.stack)
@@ -53,12 +50,18 @@ class ApplicationWindow(QWidget):
         self.setLayout(layout)
 
     def logged_in(self):
+        c = conn.cursor()
         self.stack.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
         self.stack.addWidget(self.corestack)
         self.stack.setCurrentWidget(self.corestack)
         logged_username = self.login.login_auth()
         self.core.logged_label.setText('Logged in as: {}'.format(logged_username))
         self.stack.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        query = c.execute(" SELECT id FROM users WHERE username == '{}'".format(logged_username))
+        self.core.logged_id = [a for a in query.fetchone()][0]
+        self.core.general_setup()
+        print(self.core.logged_id)
+
 
 
 class MenuWindow(QWidget):
@@ -393,7 +396,8 @@ class CoreMenuWindow(QWidget):
         self.current_widget_label.setFixedSize(700, 100)
         self.current_widget_label.setStyleSheet('font: 42pt')
 
-        self.logged_username = ''
+        self.logged_id = 0
+
         self.logged_label = QLabel()
         self.logged_label.setAlignment(Qt.AlignBottom | Qt.AlignRight)
         separator = QFrame()
@@ -423,11 +427,11 @@ class CoreMenuWindow(QWidget):
         self.all_frames = []
 
         self.overview_frame = QFrame()
-        self.setup_overview()
+        # self.setup_overview()
         self.history_frame = QFrame()
-        self.setup_history()
+        # self.setup_history()
         self.manage_frame = QFrame()
-        self.setup_manage()
+        # self.setup_manage()
 
         self.mainwindow_layout = QHBoxLayout()
         box.addLayout(topbar)
@@ -438,13 +442,18 @@ class CoreMenuWindow(QWidget):
         self.mainwindow_layout.addWidget(self.history_frame)
         self.mainwindow_layout.addWidget(self.manage_frame)
 
-        self.select_overview()
         self.leftmenu_overview_button.clicked.connect(self.select_overview)
         self.leftmenu_history_button.clicked.connect(self.select_history)
         self.leftmenu_manage_button.clicked.connect(self.select_manage)
 
         self.setLayout(box)
         self.show()
+
+    def general_setup(self):    # This function serves as connection with user ID from login page
+        self.setup_overview()
+        self.setup_history()
+        self.setup_manage()
+        self.select_overview()
 
     def setup_overview(self):
         c = conn.cursor()
@@ -454,8 +463,9 @@ class CoreMenuWindow(QWidget):
         self.all_frames.append(self.overview_frame)
 
         query = c.execute("""   SELECT SUM(amount)
-                                FROM finances                
-                            """)
+                                FROM finances
+                                WHERE id_user == {}              
+                            """.format(self.logged_id))
         bal = query.fetchone()
         accbalance_label = QLabel()
         accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
@@ -484,10 +494,11 @@ class CoreMenuWindow(QWidget):
         table.setHorizontalHeaderLabels(('Amount', 'In/Out', 'Category', 'Date'))
         query = c.execute("""   SELECT amount, type, category, date
                             FROM finances 
+                            WHERE id_user == {}
                             ORDER BY date DESC
-                            LIMIT 5""")
+                            LIMIT 5""".format(self.logged_id))
         querylist = [a for a in query.fetchall()]
-        for i in range(0, 5):
+        for i in range(0, len(querylist)):
             for j in range(0, 4):
                 if j == 0:
                     item = QTableWidgetItem()
@@ -556,7 +567,8 @@ class CoreMenuWindow(QWidget):
 
         query = c.execute("""   SELECT amount, type, category, date
                                                     FROM finances 
-                                                    """)
+                                                    WHERE id_user == {}
+                                                    """.format(self.logged_id))
         querylist = [a for a in query.fetchall()]
         self.table.setRowCount(len(querylist))
         for i in range(0, len(querylist)):
@@ -602,7 +614,7 @@ class CoreMenuWindow(QWidget):
         for i, item in enumerate(cblist):
             if item > 0:
                 crits.append(texts[i])
-        where_string = '' + ' AND '.join(crits)
+        where_string = 'AND ' + ' AND '.join(crits)
         print(where_string)
         if where_string == '':
             query = c.execute("""   SELECT amount, type, category, date
@@ -612,8 +624,8 @@ class CoreMenuWindow(QWidget):
         else:
             query = c.execute("""   SELECT amount, type, category, date
                                             FROM finances 
-                                            WHERE
-                                            """ + where_string)
+                                            WHERE id_user == {}
+                                            """.format(self.logged_id) + where_string)
             querylist = [a for a in query.fetchall()]
         self.table.setRowCount(len(querylist))
         for i in range(0, len(querylist)):
@@ -747,11 +759,25 @@ class CoreMenuWindow(QWidget):
         query = c.execute(" SELECT id FROM finances")
         last_id = [a[0] for a in query.fetchall()][-1]
         new_id = last_id + 1
-        id_u = 0
+        id_u = self.logged_id
         c.execute(""" INSERT INTO finances 
                               VALUES (:id, :amount, :type, :category, :date, :id_user) """, {'id': new_id, 'amount': amount,
                                 'type': type, 'category': cat, 'date': date, 'id_user': id_u})
         conn.commit()
+        success_dia = QDialog()
+        success_dia.resize(200, 100)
+        success_dia.setWindowTitle(' ')
+        success_dia.setWindowModality(Qt.ApplicationModal)
+        success_dia_layout = QVBoxLayout()
+        success_dia_label = QLabel('Success!', success_dia)
+        success_dia_label.setAlignment(Qt.AlignCenter)
+        success_dia_button = QPushButton('Ok', success_dia)
+        success_dia_button_group = QButtonGroup()
+        success_dia_layout.addWidget(success_dia_label)
+        success_dia_layout.addWidget(success_dia_button)
+        success_dia_button.clicked.connect(success_dia.close)
+        success_dia.setLayout(success_dia_layout)
+        success_dia.exec_()
 
 
 if __name__ == '__main__':
