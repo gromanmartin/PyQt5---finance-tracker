@@ -2,7 +2,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 import sqlite3
-# from createacc_module import CreateAccWindow
+import pyqtgraph as pg
 import sys
 
 
@@ -61,7 +61,6 @@ class ApplicationWindow(QWidget):
         self.core.logged_id = [a for a in query.fetchone()][0]
         self.core.general_setup()
         print(self.core.logged_id)
-
 
 
 class MenuWindow(QWidget):
@@ -384,7 +383,7 @@ class CoreMenuWindow(QWidget):
         super(CoreMenuWindow, self).__init__()
         self.setGeometry(0, 0, 750, 550)
         box = QVBoxLayout()
-
+        self.plot_window = PlotWindow()
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), Qt.lightGray)
@@ -433,15 +432,22 @@ class CoreMenuWindow(QWidget):
         self.accbalance_label = QLabel()
         self.table_overview = QTableWidget()
 
-
         self.history_frame = QFrame()
         self.all_frames.append(self.history_frame)
         self.history_layout = QVBoxLayout()
         self.history_frame.setLayout(self.history_layout)
         self.table_history = QTableWidget()
-        # self.setup_history()
+
         self.manage_frame = QFrame()
-        # self.setup_manage()
+        self.all_frames.append(self.manage_frame)
+        self.manage_layout = QVBoxLayout()
+        self.manage_frame.setLayout(self.manage_layout)
+
+        self.charts_frame = QFrame()
+        self.charts_layout = QVBoxLayout()
+        self.charts_frame.setLayout(self.charts_layout)
+        self.all_frames.append(self.charts_frame)
+        self.plot_buttons = QButtonGroup()
 
         self.mainwindow_layout = QHBoxLayout()
         box.addLayout(topbar)
@@ -450,10 +456,12 @@ class CoreMenuWindow(QWidget):
         self.mainwindow_layout.addLayout(leftmenu_layout)
         self.mainwindow_layout.addWidget(self.overview_frame)
         self.mainwindow_layout.addWidget(self.history_frame)
+        self.mainwindow_layout.addWidget(self.charts_frame)
         self.mainwindow_layout.addWidget(self.manage_frame)
 
         self.leftmenu_overview_button.clicked.connect(self.select_overview)
         self.leftmenu_history_button.clicked.connect(self.select_history)
+        self.leftmenu_charts_button.clicked.connect(self.select_charts)
         self.leftmenu_manage_button.clicked.connect(self.select_manage)
         self.leftmenu_exit_button.clicked.connect(sys.exit)
 
@@ -464,6 +472,7 @@ class CoreMenuWindow(QWidget):
         self.setup_overview()
         self.setup_history()
         self.setup_manage()
+        self.setup_charts()
         self.select_overview()
 
     def update_overview(self):
@@ -695,10 +704,7 @@ class CoreMenuWindow(QWidget):
                     self.table.setItem(i, j, item)
 
     def setup_manage(self):
-        manage_layout = QVBoxLayout()
-        self.manage_frame.setLayout(manage_layout)
         self.manage_frame.hide()
-        self.all_frames.append(self.manage_frame)
 
         main_label = QLabel('Insert a new income/expense:')
         main_label.setAlignment(Qt.AlignLeft)
@@ -714,7 +720,6 @@ class CoreMenuWindow(QWidget):
         self.type_edit.setFixedWidth(100)
         inout_list = ['In/Out', 'in', 'out']
 
-
         category_label = QLabel('Category')
         category_label.setFixedWidth(100)
         self.category_edit = QComboBox()
@@ -723,7 +728,6 @@ class CoreMenuWindow(QWidget):
         self.type_edit.addItem('In/Out', ['Category'])
         self.type_edit.addItem('in', ['Category', 'Income', 'Other income'])
         self.type_edit.addItem('out',['Category', 'Shopping', 'Rent', 'Fun', 'Other bills'])
-
 
         date_label = QLabel('Date (YYYY-MM-DD)')
         date_label.setFixedWidth(100)
@@ -770,7 +774,7 @@ class CoreMenuWindow(QWidget):
         self.category_edit.currentIndexChanged.connect(self.manage_insert_button_enable)
         self.date_edit.textEdited.connect(self.manage_insert_button_enable)
         self.insert_button.clicked.connect(self.insert_into_db)
-        manage_layout.addLayout(main_grid)
+        self.manage_layout.addLayout(main_grid)
 
     def select_manage(self):
         for frame in self.all_frames:
@@ -833,6 +837,79 @@ class CoreMenuWindow(QWidget):
         success_dia.setLayout(success_dia_layout)
         success_dia.exec_()
 
+    def setup_charts(self):
+        self.charts_frame.hide()
+
+        top_label = QLabel('Choose a graph to plot')
+
+        plot1_label = QLabel('Income')
+        plot1_label.setFixedWidth(100)
+        plot1_cb = QComboBox()
+        plot1_cb.setFixedWidth(100)
+        plot1_cb_list = ['Pick one', 'Total', 'By month', 'By category']
+        plot1_cb.addItems(plot1_cb_list)
+        plot1_button = QPushButton('Plot')
+
+        plot2_label = QLabel('Expense')
+        plot2_label.setFixedWidth(100)
+        plot2_cb = QComboBox()
+        plot2_cb.setFixedWidth(100)
+        plot2_cb_list = ['Pick one', 'Total', 'By month', 'By category']
+        plot2_cb.addItems(plot2_cb_list)
+        plot2_button = QPushButton('Plot')
+
+        plot3_label = QLabel('In vs out')
+        plot3_label.setFixedWidth(100)
+        plot3_cb = QComboBox()
+        plot3_cb.setFixedWidth(100)
+        plot3_cb_list = ['Pick one', 'Total', 'By month']
+        plot3_cb.addItems(plot3_cb_list)
+        plot3_button = QPushButton('Plot')
+
+        main_grid = QVBoxLayout()
+        main_grid.addWidget(top_label)
+        grids = []
+        for i in range(0, 3):
+            new_grid = QHBoxLayout()
+            grids.append(new_grid)
+            main_grid.addLayout(grids[i])
+
+        form_list = [(plot1_label, plot1_cb, plot1_button), (plot2_label, plot2_cb, plot2_button),
+                     (plot3_label, plot3_cb, plot3_button)]
+        for i, pair in enumerate(form_list):
+            grids[i].addWidget(pair[0])
+            grids[i].addWidget(pair[1])
+            grids[i].addWidget(pair[2])
+            grids[i].addStretch(100)
+        main_grid.addStretch(200)
+        for i, button in enumerate([plot1_button, plot2_button, plot3_button]):
+            self.plot_buttons.addButton(button, i+1)
+
+        self.plot_buttons.buttonClicked[int].connect(self.plot_window.show)
+        self.charts_layout.addLayout(main_grid)
+
+
+    def select_charts(self):
+        for frame in self.all_frames:
+            frame.hide()
+        self.charts_frame.show()
+        self.current_widget_label.setText('Charts')
+
+
+class PlotWindow(QWidget):
+
+    def __init__(self):
+        super(PlotWindow, self).__init__()
+        plot_layout = QVBoxLayout()
+        graph = pg.PlotWidget()
+        hour = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        temperature = [30, 32, 34, 32, 33, 31, 29, 32, 35, 45]
+        graph.plot(hour, temperature)
+        plot_layout.addWidget(graph)
+        self.setLayout(plot_layout)
+
+    def plot(self):
+        
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
