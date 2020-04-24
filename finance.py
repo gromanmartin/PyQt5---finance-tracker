@@ -4,6 +4,7 @@ from PyQt5.QtGui import *
 import sqlite3
 import pyqtgraph as pg
 import sys
+import numpy as np
 
 
 class ApplicationWindow(QWidget):
@@ -384,6 +385,7 @@ class CoreMenuWindow(QWidget):
         self.setGeometry(0, 0, 750, 550)
         box = QVBoxLayout()
         self.plot_window = PlotWindow()
+        self.plot_window.hide()
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), Qt.lightGray)
@@ -846,24 +848,24 @@ class CoreMenuWindow(QWidget):
         plot1_label.setFixedWidth(100)
         plot1_cb = QComboBox()
         plot1_cb.setFixedWidth(100)
-        plot1_cb_list = ['Pick one', 'Total', 'By month', 'By category']
+        plot1_cb_list = ['Pick one', 'By month', 'By category']
         plot1_cb.addItems(plot1_cb_list)
-        plot1_button = QPushButton('Plot')
+        plot1_button = QPushButton('Plot1')
 
         plot2_label = QLabel('Expense')
         plot2_label.setFixedWidth(100)
         plot2_cb = QComboBox()
         plot2_cb.setFixedWidth(100)
-        plot2_cb_list = ['Pick one', 'Total', 'By month', 'By category']
+        plot2_cb_list = ['Pick one', 'By month', 'By category']
         plot2_cb.addItems(plot2_cb_list)
-        plot2_button = QPushButton('Plot')
+        plot2_button = QPushButton('Plot2')
 
         plot3_label = QLabel('In vs out')
         plot3_label.setFixedWidth(100)
-        plot3_cb = QComboBox()
-        plot3_cb.setFixedWidth(100)
-        plot3_cb_list = ['Pick one', 'Total', 'By month']
-        plot3_cb.addItems(plot3_cb_list)
+        self.plot3_cb = QComboBox()
+        self.plot3_cb.setFixedWidth(100)
+        plot3_cb_list = ['Pick one', 'Total', 'By category', 'By month']
+        self.plot3_cb.addItems(plot3_cb_list)
         plot3_button = QPushButton('Plot')
 
         main_grid = QVBoxLayout()
@@ -875,7 +877,7 @@ class CoreMenuWindow(QWidget):
             main_grid.addLayout(grids[i])
 
         form_list = [(plot1_label, plot1_cb, plot1_button), (plot2_label, plot2_cb, plot2_button),
-                     (plot3_label, plot3_cb, plot3_button)]
+                     (plot3_label, self.plot3_cb, plot3_button)]
         for i, pair in enumerate(form_list):
             grids[i].addWidget(pair[0])
             grids[i].addWidget(pair[1])
@@ -885,9 +887,10 @@ class CoreMenuWindow(QWidget):
         for i, button in enumerate([plot1_button, plot2_button, plot3_button]):
             self.plot_buttons.addButton(button, i+1)
 
-        self.plot_buttons.buttonClicked[int].connect(self.plot_window.show)
-        self.charts_layout.addLayout(main_grid)
+        # self.plot3_cb.currentIndexChanged.connect(self.set_plot_data)
+        plot3_button.clicked.connect(self.set_plot_data)
 
+        self.charts_layout.addLayout(main_grid)
 
     def select_charts(self):
         for frame in self.all_frames:
@@ -895,21 +898,88 @@ class CoreMenuWindow(QWidget):
         self.charts_frame.show()
         self.current_widget_label.setText('Charts')
 
+    def get_plot_data(self):
+        c = conn.cursor()
+        which = self.plot3_cb.currentIndex()
+        print(which)
+        if which == 1:
+            query = c.execute("""   SELECT SUM(amount), type
+                                        FROM finances
+                                        WHERE id_user == {}
+                                        GROUP BY(type)
+                                                """.format(self.logged_id))
+            res = [a for a in query.fetchall()]
+
+        elif which == 2:
+            query = c.execute("""   SELECT amount
+                            FROM finances
+                            WHERE id_user == {}
+                            GROUP BY(category)
+                                    """.format(self.logged_id))
+            res = [a for a in query.fetchall()]
+        elif which == 3:
+            query = c.execute("""   SELECT SUM(amount),
+                                    CASE
+                                                WHEN date LIKE '%-01-%' THEN 'January'
+                                                WHEN date LIKE '%-02-%' THEN 'February'
+                                                WHEN date LIKE '%-03-%' THEN 'March'
+                                                WHEN date LIKE '%-04-%' THEN 'April'
+                                                WHEN date LIKE '%-05-%' THEN 'May'
+                                                WHEN date LIKE '%-06-%' THEN 'June'
+                                                WHEN date LIKE '%-07-%' THEN 'July'
+                                                WHEN date LIKE '%-08-%' THEN 'August'
+                                                WHEN date LIKE '%-09-%' THEN 'September'
+                                                WHEN date LIKE '%-10-%' THEN 'October'
+                                                WHEN date LIKE '%-11-%' THEN 'November'
+                                                WHEN date LIKE '%-12-%' THEN 'December'
+                                    END AS dateText
+                                    FROM finances
+                                    WHERE id_user == {}
+                                    GROUP BY dateText
+                                                """.format(self.logged_id))
+            res = [a for a in query.fetchall()]
+        else:
+            res = [(0, 'ERROR')]
+        return res
+
+    def set_plot_data(self):
+        data = self.get_plot_data()
+        win = pg.plot(title='Simple Bar Chart')
+        y = np.asarray([a[0] for a in data])
+        y[]
+        x = np.asarray([a[1] for a in data])
+        # y = np.linspace(0, 2, num=2)
+        x = np.arange(2)
+        # y1 = np.linspace(0, 20, num=20)
+        # x = np.arange(20)
+        bg1 = pg.BarGraphItem(x=x, height=y, width=0.6, brush='b')
+        win.addItem(bg1)
+        win.setTitle('Simple Bar Chart: Car Distribution')
+        # win.setLabel('left', "Frequency", )
+        # win.setLabel('bottom', "Number of Gears")
+
 
 class PlotWindow(QWidget):
 
     def __init__(self):
         super(PlotWindow, self).__init__()
         plot_layout = QVBoxLayout()
-        graph = pg.PlotWidget()
-        hour = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        temperature = [30, 32, 34, 32, 33, 31, 29, 32, 35, 45]
-        graph.plot(hour, temperature)
-        plot_layout.addWidget(graph)
+        # self.graph = pg.plot()
+        # hour = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        # temperature = [30, 32, 34, 32, 33, 31, 29, 32, 35, 45]
+        # self.graph.plot(hour, temperature)
+        # plot_layout.addWidget(self.graph)
         self.setLayout(plot_layout)
 
-    def plot(self):
-        
+    def plot(self, data):
+
+        y = [a[0] for a in data]
+        print(y)
+        x = [a[1] for a in data]
+        print(x)
+        bg = pg.BarGraphItem(x=x, height=y, width=1)
+        self.graph.addItem(bg)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
