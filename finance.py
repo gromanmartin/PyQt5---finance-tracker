@@ -384,8 +384,6 @@ class CoreMenuWindow(QWidget):
         super(CoreMenuWindow, self).__init__()
         self.setGeometry(0, 0, 750, 550)
         box = QVBoxLayout()
-        self.plot_window = PlotWindow()
-        self.plot_window.hide()
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), Qt.lightGray)
@@ -485,11 +483,16 @@ class CoreMenuWindow(QWidget):
                                     """.format(self.logged_id))
         bal = query.fetchone()
         self.accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
-        self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
-        if bal[0] > 0:
+        if bal[0] is None:
+            bal = 0
+            self.accbalance_label.setStyleSheet('color: red')
+            self.accbalance_label.setText('Balance: {}$'.format(bal))
+        elif bal[0] > 0:
             self.accbalance_label.setStyleSheet('color: green')
+            self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
         else:
             self.accbalance_label.setStyleSheet('color: red')
+            self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
 
         query = c.execute("""   SELECT amount, type, category, date
                                     FROM finances
@@ -518,13 +521,17 @@ class CoreMenuWindow(QWidget):
                                 WHERE id_user == {}              
                             """.format(self.logged_id))
         bal = query.fetchone()
-        self.accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
-        self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
-        if bal[0] > 0:
+        if bal[0] is None:
+            bal = 0
+            self.accbalance_label.setStyleSheet('color: red')
+            self.accbalance_label.setText('Balance: {}$'.format(bal))
+        elif bal[0] > 0:
             self.accbalance_label.setStyleSheet('color: green')
+            self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
         else:
             self.accbalance_label.setStyleSheet('color: red')
-
+            self.accbalance_label.setText('Balance: {}$'.format(bal[0]))
+        self.accbalance_label.setAlignment(Qt.AlignCenter | Qt.AlignTop)
         table_label = QLabel('Table showing last 5 balance changes')
         table_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
@@ -680,11 +687,14 @@ class CoreMenuWindow(QWidget):
             if item > 0:
                 crits.append(texts[i])
         where_string = 'AND ' + ' AND '.join(crits)
-        # print(where_string)
+        if where_string == 'AND ':
+            where_string = ''
+        print(where_string)
         if where_string == '':
             query = c.execute("""   SELECT amount, type, category, date
                                             FROM finances 
-                                            """)
+                                            WHERE id_user == {}
+                                            """.format(self.logged_id))
             querylist = [a for a in query.fetchall()]
         else:
             query = c.execute("""   SELECT amount, type, category, date
@@ -692,18 +702,18 @@ class CoreMenuWindow(QWidget):
                                             WHERE id_user == {}
                                             """.format(self.logged_id) + where_string)
             querylist = [a for a in query.fetchall()]
-        self.table.setRowCount(len(querylist))
+        self.table_history.setRowCount(len(querylist))
         for i in range(0, len(querylist)):
             for j in range(0, 4):
                 if j == 0:
                     item = QTableWidgetItem()
                     item.setTextAlignment(Qt.AlignCenter)
                     item.setData(Qt.EditRole, querylist[i][j])
-                    self.table.setItem(i, j, item)
+                    self.table_history.setItem(i, j, item)
                 else:
                     item = QTableWidgetItem(querylist[i][j])
                     item.setTextAlignment(Qt.AlignCenter)
-                    self.table.setItem(i, j, item)
+                    self.table_history.setItem(i, j, item)
 
     def setup_manage(self):
         self.manage_frame.hide()
@@ -729,12 +739,12 @@ class CoreMenuWindow(QWidget):
         self.category_edit.setFixedWidth(100)
         self.type_edit.addItem('In/Out', ['Category'])
         self.type_edit.addItem('in', ['Category', 'Income', 'Other income'])
-        self.type_edit.addItem('out',['Category', 'Shopping', 'Rent', 'Fun', 'Other bills'])
+        self.type_edit.addItem('out', ['Category', 'Shopping', 'Rent', 'Fun', 'Other bills'])
 
         date_label = QLabel('Date (YYYY-MM-DD)')
         date_label.setFixedWidth(100)
         self.date_edit = QLineEdit()
-        date_regex = QRegExp("(19[0-9][0-9]|20[0-2][0-9])-(0[1-9]|[1][0-2])-(0[1-9]|[12][0-9]|3[01])")
+        date_regex = QRegExp("(20[0-2][0-9])-(0[1-9]|[1][0-2])-(0[1-9]|[12][0-9]|3[01])")
         valid = QRegExpValidator(date_regex)
         self.date_edit.setValidator(valid)
         self.date_edit.setFixedWidth(100)
@@ -848,17 +858,17 @@ class CoreMenuWindow(QWidget):
         plot1_label.setFixedWidth(100)
         plot1_cb = QComboBox()
         plot1_cb.setFixedWidth(100)
-        plot1_cb_list = ['Pick one', 'By month', 'By category']
+        plot1_cb_list = ['Pick one']
         plot1_cb.addItems(plot1_cb_list)
-        plot1_button = QPushButton('Plot1')
+        plot1_button = QPushButton('INACTIVE')
 
         plot2_label = QLabel('Expense')
         plot2_label.setFixedWidth(100)
         plot2_cb = QComboBox()
         plot2_cb.setFixedWidth(100)
-        plot2_cb_list = ['Pick one', 'By month', 'By category']
+        plot2_cb_list = ['Pick one']
         plot2_cb.addItems(plot2_cb_list)
-        plot2_button = QPushButton('Plot2')
+        plot2_button = QPushButton('INACTIVE')
 
         plot3_label = QLabel('In vs out')
         plot3_label.setFixedWidth(100)
@@ -887,9 +897,7 @@ class CoreMenuWindow(QWidget):
         for i, button in enumerate([plot1_button, plot2_button, plot3_button]):
             self.plot_buttons.addButton(button, i+1)
 
-        # self.plot3_cb.currentIndexChanged.connect(self.set_plot_data)
-        plot3_button.clicked.connect(self.set_plot_data)
-
+        plot3_button.clicked.connect(self.get_plot_data)
         self.charts_layout.addLayout(main_grid)
 
     def select_charts(self):
@@ -901,22 +909,59 @@ class CoreMenuWindow(QWidget):
     def get_plot_data(self):
         c = conn.cursor()
         which = self.plot3_cb.currentIndex()
+        win = pg.plot()
         print(which)
         if which == 1:
             query = c.execute("""   SELECT SUM(amount), type
                                         FROM finances
                                         WHERE id_user == {}
                                         GROUP BY(type)
+                                        ORDER BY type ASC
                                                 """.format(self.logged_id))
             res = [a for a in query.fetchall()]
+            x = np.arange(len(res))
+            y = np.asarray([a[0] for a in res])
+            if len(y) > 1:
+                y[1] = - y[1]
+            bg1 = pg.BarGraphItem(x=x, height=y, width=0.6, brushes='gr')
+            win.addItem(bg1)
+            ticks = [list(zip(range(2), ('In', 'Out')))]
+            xax = win.getAxis('bottom')
+            xax.setTicks(ticks)
+            win.setTitle('Income vs expenses')
 
         elif which == 2:
-            query = c.execute("""   SELECT amount
+            query = c.execute("""   SELECT SUM(amount), category
                             FROM finances
                             WHERE id_user == {}
                             GROUP BY(category)
+                            ORDER BY CASE
+                                    WHEN category == 'Income' THEN 1
+                                    WHEN category == 'Other income' THEN 2
+                                    WHEN category == 'Rent' THEN 3
+                                    WHEN category == 'Shopping' THEN 4
+                                    WHEN category == 'Fun' THEN 5
+                                    WHEN category == 'Other bills' THEN 6
+                                    END ASC
                                     """.format(self.logged_id))
+            x = np.arange(6)
             res = [a for a in query.fetchall()]
+            xdict = {key: value for value, key in res}
+            cat_list = ['Income', 'Other income', 'Rent', 'Shopping', 'Fun', 'Other bills']
+            for item in cat_list:
+                if item not in xdict.keys():
+                    xdict.update({item: 0})
+            xdict = sorted(xdict.items(), key=lambda pair: cat_list.index(pair[0]))
+            y = np.asarray([a[1] for a in xdict])
+            for i in range(0, 6):
+                if y[i] < 0:
+                    y[i] = - y[i]
+            bg1 = pg.BarGraphItem(x=x, height=y, width=0.6, brushes='ggrrrr')
+            win.addItem(bg1)
+            ticks = [list(zip(range(6), ('Income', 'Other income', 'Rent', 'Shopping', 'Fun', 'Other bills')))]
+            xax = win.getAxis('bottom')
+            xax.setTicks(ticks)
+            win.setTitle('Income vs expenses - by category')
         elif which == 3:
             query = c.execute("""   SELECT SUM(amount),
                                     CASE
@@ -936,49 +981,38 @@ class CoreMenuWindow(QWidget):
                                     FROM finances
                                     WHERE id_user == {}
                                     GROUP BY dateText
+                                    ORDER BY CASE
+                                                WHEN date LIKE '%-01-%' THEN 1
+                                                WHEN date LIKE '%-02-%' THEN 2
+                                                WHEN date LIKE '%-03-%' THEN 3
+                                                WHEN date LIKE '%-04-%' THEN 4
+                                                WHEN date LIKE '%-05-%' THEN 5
+                                                WHEN date LIKE '%-06-%' THEN 6
+                                                WHEN date LIKE '%-07-%' THEN 7
+                                                WHEN date LIKE '%-08-%' THEN 8
+                                                WHEN date LIKE '%-09-%' THEN 9
+                                                WHEN date LIKE '%-10-%' THEN 10
+                                                WHEN date LIKE '%-11-%' THEN 11
+                                                WHEN date LIKE '%-12-%' THEN 12
+                                            END ASC
                                                 """.format(self.logged_id))
+            x = np.arange(12)
             res = [a for a in query.fetchall()]
-        else:
-            res = [(0, 'ERROR')]
-        return res
-
-    def set_plot_data(self):
-        data = self.get_plot_data()
-        win = pg.plot(title='Simple Bar Chart')
-        y = np.asarray([a[0] for a in data])
-        y[]
-        x = np.asarray([a[1] for a in data])
-        # y = np.linspace(0, 2, num=2)
-        x = np.arange(2)
-        # y1 = np.linspace(0, 20, num=20)
-        # x = np.arange(20)
-        bg1 = pg.BarGraphItem(x=x, height=y, width=0.6, brush='b')
-        win.addItem(bg1)
-        win.setTitle('Simple Bar Chart: Car Distribution')
-        # win.setLabel('left', "Frequency", )
-        # win.setLabel('bottom', "Number of Gears")
-
-
-class PlotWindow(QWidget):
-
-    def __init__(self):
-        super(PlotWindow, self).__init__()
-        plot_layout = QVBoxLayout()
-        # self.graph = pg.plot()
-        # hour = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        # temperature = [30, 32, 34, 32, 33, 31, 29, 32, 35, 45]
-        # self.graph.plot(hour, temperature)
-        # plot_layout.addWidget(self.graph)
-        self.setLayout(plot_layout)
-
-    def plot(self, data):
-
-        y = [a[0] for a in data]
-        print(y)
-        x = [a[1] for a in data]
-        print(x)
-        bg = pg.BarGraphItem(x=x, height=y, width=1)
-        self.graph.addItem(bg)
+            xdict = {key: value for value, key in res}
+            cat_list = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September',
+                        'October', 'November', 'December']
+            for item in cat_list:
+                if item not in xdict.keys():
+                    xdict.update({item: 0})
+            xdict = sorted(xdict.items(), key=lambda pair: cat_list.index(pair[0]))
+            y = np.asarray([a[1] for a in xdict])
+            bg1 = pg.BarGraphItem(x=x, height=y, width=0.5, brush='b')
+            win.addItem(bg1)
+            ticks = [list(zip(range(12), ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+                                          'September', 'October', 'November', 'December')))]
+            xax = win.getAxis('bottom')
+            xax.setTicks(ticks)
+            win.setTitle('Income vs expenses - by month')
 
 
 if __name__ == '__main__':
