@@ -23,4 +23,4 @@ sqlite
 
 ## Authors
 
-* **Me, myself and I** 
+Martin Groman
